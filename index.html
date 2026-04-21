@@ -502,6 +502,7 @@ async function renderCategory() {
       return {
         id: getText('id'),
         title: getText('title').replace(/\s+/g, ' '),
+        titleJa: '',
         summary: getText('summary').replace(/\s+/g, ' '),
         published: getText('published'),
         authors: Array.from(entry.querySelectorAll('author > name')).map(n => n.textContent.trim())
@@ -510,6 +511,9 @@ async function renderCategory() {
 
     cache.papers[cat.id] = papers;
     renderPapers(papers);
+
+    // タイトルを日本語に翻訳（バックグラウンド）
+    translateTitles(cat.id, papers);
   } catch (err) {
     content.innerHTML = `<div class="error">arxiv の読み込みに失敗しました。少し時間をおいて再読込してください。<br><span style="font-family:monospace;font-size:11px;color:var(--ink-faint)">${escapeHtml(err.message)}</span></div>`;
   }
@@ -538,10 +542,11 @@ function renderPaper(p, i) {
   const pdfUrl = p.id.replace('/abs/', '/pdf/');
   const num = String(i + 1).padStart(2, '0');
 
+  const displayTitle = p.titleJa || p.title;
   return `
     <div class="paper" data-idx="${i}">
       <div class="paper-number">№ ${num}</div>
-      <div class="paper-title">${escapeHtml(p.title)}</div>
+      <div class="paper-title">${escapeHtml(displayTitle)}</div>
       <div class="paper-meta">
         <span>${year}</span>
         <span>arxiv</span>
@@ -650,6 +655,50 @@ ${paper.summary}
   text = text.replace(/^```(?:html)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
 
   return text;
+}
+
+async function translateTitles(catId, papers) {
+  const titles = papers.map((p, i) => `${i + 1}. ${p.title}`).join('\n');
+  const prompt = `以下の論文タイトルを日本語に翻訳してください。番号付きで、翻訳のみを返してください。
+
+${titles}`;
+
+  try {
+    const response = await fetch("https://aisdr-proxy.hdxrope.workers.dev/deepseek", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "deepseek-chat",
+        max_tokens: 2000,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+
+    if (!response.ok) return;
+
+    const data = await response.json();
+    const text = data.choices[0].message.content.trim();
+    const lines = text.split('\n').filter(l => l.trim());
+
+    lines.forEach(line => {
+      const match = line.match(/^(\d+)\.\s*(.+)$/);
+      if (match) {
+        const idx = parseInt(match[1]) - 1;
+        if (papers[idx]) {
+          papers[idx].titleJa = match[2].trim();
+        }
+      }
+    });
+
+    cache.papers[catId] = papers;
+
+    // 現在表示中のカテゴリなら再描画
+    if (currentCategory === catId) {
+      renderPapers(papers);
+    }
+  } catch (err) {
+    console.error('Translation failed:', err);
+  }
 }
 
 renderTabs();
