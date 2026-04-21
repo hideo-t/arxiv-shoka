@@ -490,7 +490,7 @@ async function renderCategory() {
 
   try {
     const arxivUrl = `https://export.arxiv.org/api/query?search_query=${cat.query}&start=0&max_results=15&sortBy=submittedDate&sortOrder=descending`;
-    const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(arxivUrl)}`);
+    const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(arxivUrl)}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const xmlText = await res.text();
     const parser = new DOMParser();
