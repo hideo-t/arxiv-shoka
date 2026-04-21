@@ -489,8 +489,8 @@ async function renderCategory() {
   content.innerHTML = '<div class="loading">arxiv から取得中</div>';
 
   try {
-    const url = `https://export.arxiv.org/api/query?search_query=${cat.query}&start=0&max_results=15&sortBy=submittedDate&sortOrder=descending`;
-    const res = await fetch(url);
+    const arxivUrl = `https://export.arxiv.org/api/query?search_query=${cat.query}&start=0&max_results=15&sortBy=submittedDate&sortOrder=descending`;
+    const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(arxivUrl)}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const xmlText = await res.text();
     const parser = new DOMParser();
